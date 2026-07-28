@@ -1,89 +1,148 @@
-import { UserModel } from "../models/user.model.js";
+// ============================================================
+// user.controller.js — Controlador de usuarios
+// ============================================================
+// CRUD completo de usuarios + consulta de tareas por usuario.
+// Cada funcion recibe (req, res), lee/escribe en db.json
+// y retorna JSON con los datos del usuario (sin password).
 
-// =================================================================
-// [B2 - Stiven] Refactorizar para usar modelos con BD
-// =================================================================
-// Igual que task.controller: los controladores ya están limpios.
-// Cuando B1 migre UserModel a BD, esto funciona automáticamente.
-// =================================================================
+const { readDB, writeDB } = require('../models');
 
-const ok = (res, data, message = "Operación exitosa", status = 200) =>
-  res.status(status).json({ success: true, message, data, errors: [] });
-
-const fail = (res, message = "Error", status = 500, errors = []) =>
-  res.status(status).json({ success: false, message, data: null, errors });
-
-export const getAll = (req, res) => {
-  try {
-    const users = UserModel.findAll();
-    ok(res, users, "Lista de usuarios");
-  } catch (error) {
-    fail(res, "Error al obtener usuarios");
-  }
-};
-
-export const getById = (req, res) => {
-  try {
-    const user = UserModel.findById(req.params.id);
-    if (!user) return fail(res, `Usuario con ID ${req.params.id} no encontrado`, 404);
-    ok(res, user, "Usuario encontrado");
-  } catch (error) {
-    fail(res, "Error al buscar usuario");
-  }
-};
-
-export const create = (req, res) => {
+// POST /api/users — Crear un nuevo usuario
+exports.create = (req, res) => {
   try {
     const { name, email, rol, password } = req.body;
-    if (!name || !name.trim()) return fail(res, "El nombre es obligatorio", 400);
-    if (!email || !email.trim()) return fail(res, "El email es obligatorio", 400);
-    if (!rol || !rol.trim()) return fail(res, "El rol es obligatorio", 400);
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: 'El nombre es obligatorio' });
+    }
+    if (!email || !email.trim()) {
+      return res.status(400).json({ message: 'El email es obligatorio' });
+    }
+    if (!rol || !rol.trim()) {
+      return res.status(400).json({ message: 'El rol es obligatorio' });
+    }
     if (!password || password.length < 6) {
-      return fail(res, "La contraseña debe tener al menos 6 caracteres", 400);
+      return res.status(400).json({ message: 'La contraseña debe tener al menos 6 caracteres' });
     }
 
-    const newUser = UserModel.create({ name, email, rol, password, ficha: req.body.ficha });
-    ok(res, newUser, "Usuario creado correctamente", 201);
+    const db = readDB();
+    const maxId = db.users.reduce((max, u) => Math.max(max, parseInt(u.id) || 0), 0);
+    const newUser = {
+      id: String(maxId + 1),
+      name: name.trim(),
+      email: email.trim(),
+      rol: rol.trim(),
+      password: password,
+      active: true,
+      ficha: req.body.ficha || '3315656'
+    };
+    db.users.push(newUser);
+    writeDB(db);
+    const { password: _, ...safeUser } = newUser;
+    res.status(201).json(safeUser);
   } catch (error) {
-    fail(res, "Error al crear usuario");
+    res.status(500).json({ message: 'Error al crear usuario', error: error.message });
   }
 };
 
-export const update = (req, res) => {
-  try {
-    const { name, email, rol } = req.body;
-    if (name !== undefined && !name.trim()) return fail(res, "El nombre no puede estar vacío", 400);
-    if (email !== undefined && !email.trim()) return fail(res, "El email no puede estar vacío", 400);
-    if (rol !== undefined && !rol.trim()) return fail(res, "El rol no puede estar vacío", 400);
+// GET /api/users — Listar todos los usuarios (sin password)
+exports.getAll = (req, res) => {
+  const { users } = readDB();
+  const safeUsers = users.map(({ password, ...u }) => u);
+  res.json(safeUsers);
+};
 
-    const updated = UserModel.update(req.params.id, req.body);
-    if (!updated) return fail(res, `Usuario con ID ${req.params.id} no encontrado`, 404);
-    ok(res, updated, "Usuario actualizado correctamente");
+// GET /api/users/:id — Obtener un usuario por ID (sin password)
+exports.getById = (req, res) => {
+  const { users } = readDB();
+  const user = users.find(u => u.id === req.params.id);
+  if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+  const { password, ...safeUser } = user;
+  res.json(safeUser);
+};
+
+// PUT /api/users/:id — Actualizar un usuario
+exports.update = (req, res) => {
+  try {
+    const db = readDB();
+    const idx = db.users.findIndex(u => u.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+    const { name, email, rol, password, ficha } = req.body;
+    if (name !== undefined && !name.trim()) {
+      return res.status(400).json({ message: 'El nombre no puede estar vacío' });
+    }
+    if (email !== undefined && !email.trim()) {
+      return res.status(400).json({ message: 'El email no puede estar vacío' });
+    }
+    if (rol !== undefined && !rol.trim()) {
+      return res.status(400).json({ message: 'El rol no puede estar vacío' });
+    }
+
+    const updated = { ...db.users[idx] };
+    if (name !== undefined) updated.name = name.trim();
+    if (email !== undefined) updated.email = email.trim();
+    if (rol !== undefined) updated.rol = rol.trim();
+    if (password !== undefined) updated.password = password;
+    if (ficha !== undefined) updated.ficha = ficha;
+
+    db.users[idx] = updated;
+    writeDB(db);
+    const { password: _, ...safeUser } = updated;
+    res.json(safeUser);
   } catch (error) {
-    fail(res, "Error al actualizar usuario");
+    res.status(500).json({ message: 'Error al actualizar usuario', error: error.message });
   }
 };
 
-export const remove = (req, res) => {
+// DELETE /api/users/:id — Eliminar un usuario
+exports.remove = (req, res) => {
   try {
-    const deleted = UserModel.delete(req.params.id);
-    if (!deleted) return fail(res, `Usuario con ID ${req.params.id} no encontrado`, 404);
-    ok(res, { id: req.params.id }, "Usuario eliminado correctamente");
+    const db = readDB();
+    const idx = db.users.findIndex(u => u.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ message: 'Usuario no encontrado' });
+    db.users.splice(idx, 1);
+    writeDB(db);
+    res.json({ message: 'Usuario eliminado con éxito', id: req.params.id });
   } catch (error) {
-    fail(res, "Error al eliminar usuario");
+    res.status(500).json({ message: 'Error al eliminar usuario', error: error.message });
   }
 };
 
-export const toggleStatus = (req, res) => {
+// PATCH /api/users/:id/status — Activar/desactivar un usuario
+exports.toggleStatus = (req, res) => {
   try {
+    const db = readDB();
+    const idx = db.users.findIndex(u => u.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ message: 'Usuario no encontrado' });
+
     const { active } = req.body;
-    if (typeof active !== "boolean") {
-      return fail(res, "El campo active debe ser booleano", 400);
+    if (typeof active !== 'boolean') {
+      return res.status(400).json({ message: 'El campo active debe ser booleano' });
     }
-    const user = UserModel.toggleStatus(req.params.id, active);
-    if (!user) return fail(res, `Usuario con ID ${req.params.id} no encontrado`, 404);
-    ok(res, user, active ? "Usuario activado" : "Usuario desactivado");
+
+    db.users[idx].active = active;
+    writeDB(db);
+    const { password, ...safeUser } = db.users[idx];
+    res.json(safeUser);
   } catch (error) {
-    fail(res, "Error al cambiar estado del usuario");
+    res.status(500).json({ message: 'Error al cambiar estado', error: error.message });
   }
+};
+
+// GET /api/users/:userId/tasks — Tareas asignadas a un usuario
+exports.getUserTasks = (req, res) => {
+  const { tasks } = readDB();
+  const userTasks = tasks.filter(t => {
+    // Formato nuevo: assignedUsers como array de objetos { id, name }
+    if (Array.isArray(t.assignedUsers)) {
+      return t.assignedUsers.some(u => String(u.id) === String(req.params.userId));
+    }
+    // Formato alternativo: userIds como array de strings
+    if (Array.isArray(t.userIds)) {
+      return t.userIds.includes(req.params.userId);
+    }
+    // Formato legacy: userId como string
+    return String(t.userId) === String(req.params.userId);
+  });
+  res.json(userTasks);
 };

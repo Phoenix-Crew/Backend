@@ -1,8 +1,11 @@
-import { Router } from "express";
-import { login } from "../controllers/auth.controller.js";
+// ============================================================
+// auth.routes.js — Rutas de autenticacion
+// ============================================================
 
-const router = Router();
+const router = require('express').Router();
+const authController = require('../controllers/auth.controller');
 
-router.post("/login", login);
+// POST /api/auth/login — Inicia sesion y retorna token (pendiente de integracion)
+router.post('/login', authController.login);
 
-export default router;
+module.exports = router;
