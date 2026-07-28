@@ -2,11 +2,16 @@
   "name": "server",
   "version": "3.0.0",
   "description": "API REST - Gestión de Tareas",
-  "main": "src/index.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js"
   },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  // [B3 - Brian] Agregar driver de BD: "mysql2": "^3.11.0" o "pg": "^8.13.0"
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.21.0",

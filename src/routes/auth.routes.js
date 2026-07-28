@@ -1,11 +1,8 @@
-// ============================================================
-// auth.routes.js — Rutas de autenticacion
-// ============================================================
+import { Router } from "express";
+import { login } from "../controllers/auth.controller.js";
 
-const router = require('express').Router();
-const authController = require('../controllers/auth.controller');
+const router = Router();
 
-// POST /api/auth/login — Inicia sesion y retorna token (pendiente de integracion)
-router.post('/login', authController.login);
+router.post("/login", login);
 
-module.exports = router;
+export default router;

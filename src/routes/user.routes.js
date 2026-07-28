@@ -1,28 +1,15 @@
-// ============================================================
-// user.routes.js — Rutas del módulo de administración de usuarios
-// ============================================================
-// Endpoints disponibles:
-//   POST   /api/users              → Crear usuario
-//   GET    /api/users              → Listar todos los usuarios
-//   GET    /api/users/:userId/tasks → Tareas asignadas a un usuario
-//   GET    /api/users/:id           → Obtener un usuario por ID
-//   PUT    /api/users/:id           → Actualizar un usuario
-//   DELETE /api/users/:id           → Eliminar un usuario
-//   PATCH  /api/users/:id/status   → Activar/desactivar un usuario
+import { Router } from "express";
+import {
+  getAll, getById, create, update, remove, toggleStatus,
+} from "../controllers/user.controller.js";
 
-const router = require('express').Router();
-const userController = require('../controllers/user.controller');
+const router = Router();
 
-router.post('/',          userController.create);
-router.get('/',           userController.getAll);
+router.post("/", create);
+router.get("/", getAll);
+router.get("/:id", getById);
+router.put("/:id", update);
+router.delete("/:id", remove);
+router.patch("/:id/status", toggleStatus);
 
-// IMPORTANTE: /:userId/tasks DEBE ir antes de /:id para que Express
-// no interprete "tasks" como un ID de usuario.
-router.get('/:userId/tasks', userController.getUserTasks);
-
-router.get('/:id',        userController.getById);
-router.put('/:id',        userController.update);
-router.delete('/:id',     userController.remove);
-router.patch('/:id/status', userController.toggleStatus);
-
-module.exports = router;
+export default router;

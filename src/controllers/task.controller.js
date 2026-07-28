@@ -1,201 +1,157 @@
-// ============================================================
-// task.controller.js — Controlador CRUD de tareas
-// ============================================================
-// Cada funcion maneja la logica de negocio de un endpoint.
-// Lee/escribe en db.json a traves de readDB/writeDB.
+import { TaskModel } from "../models/task.model.js";
 
-const { readDB, writeDB } = require('../models');
+// =================================================================
+// [B2 - Stiven] Refactorizar para usar modelos con BD
+// =================================================================
+// Los controladores ya están desacoplados de la persistencia.
+// Solo validan datos y delegan en TaskModel/UserModel.
+// Cuando B1 esté listo, estos controladores funcionarán sin cambios.
+// =================================================================
 
-// create — POST /api/tasks — Crea una nueva tarea con assignedUsers
-exports.create = (req, res) => {
+const ok = (res, data, message = "Operación exitosa", status = 200) =>
+  res.status(status).json({ success: true, message, data, errors: [] });
+
+const fail = (res, message = "Error", status = 500, errors = []) =>
+  res.status(status).json({ success: false, message, data: null, errors });
+
+export const getAll = (req, res) => {
+  try {
+    const tasks = TaskModel.findAll();
+    ok(res, tasks, "Lista de tareas");
+  } catch (error) {
+    fail(res, "Error al obtener tareas");
+  }
+};
+
+export const getById = (req, res) => {
+  try {
+    const task = TaskModel.findById(req.params.id);
+    if (!task) return fail(res, `Tarea con ID ${req.params.id} no encontrada`, 404);
+    ok(res, task, "Tarea encontrada");
+  } catch (error) {
+    fail(res, "Error al buscar la tarea");
+  }
+};
+
+export const create = (req, res) => {
   try {
     const { title, description, assignedUsers } = req.body;
     if (!title || !title.trim()) {
-      return res.status(400).json({ message: 'El título es obligatorio' });
+      return fail(res, "El título es obligatorio", 400);
     }
-    const db = readDB();
-    const maxId = db.tasks.reduce((max, t) => Math.max(max, parseInt(t.id) || 0), 0);
-    const newTask = {
-      id: String(maxId + 1),
-      title: title.trim(),
-      description: (description || '').trim(),
-      status: 'Pendiente',
-      createdAt: new Date().toLocaleString('es-CO'),
-      assignedUsers: assignedUsers || []
-    };
-    db.tasks.push(newTask);
-    writeDB(db);
-    res.status(201).json(newTask);
+    const newTask = TaskModel.create({ title, description, assignedUsers });
+    ok(res, newTask, "Tarea creada correctamente", 201);
   } catch (error) {
-    res.status(500).json({ message: 'Error al crear la tarea', error: error.message });
+    fail(res, "Error al crear la tarea");
   }
 };
 
-// getAll — GET /api/tasks — Retorna todas las tareas
-exports.getAll = (req, res) => {
-  const { tasks } = readDB();
-  res.json(tasks);
-};
-
-// getById — GET /api/tasks/:id — Retorna una tarea por su ID
-exports.getById = (req, res) => {
-  const { tasks } = readDB();
-  const task = tasks.find(t => t.id === req.params.id);
-  if (!task) return res.status(404).json({ message: 'Tarea no encontrada' });
-  res.json(task);
-};
-
-// update — PUT|PATCH /api/tasks/:id — Actualiza parcial o totalmente una tarea
-exports.update = (req, res) => {
+export const update = (req, res) => {
   try {
-    const db = readDB();
-    const idx = db.tasks.findIndex(t => t.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ message: 'Tarea no encontrada' });
-
     if (req.body.title !== undefined && !req.body.title.trim()) {
-      return res.status(400).json({ message: 'El título no puede estar vacío' });
+      return fail(res, "El título no puede estar vacío", 400);
     }
-
-    db.tasks[idx] = { ...db.tasks[idx], ...req.body };
-    writeDB(db);
-    res.json(db.tasks[idx]);
+    const updated = TaskModel.update(req.params.id, req.body);
+    if (!updated) return fail(res, `Tarea con ID ${req.params.id} no encontrada`, 404);
+    ok(res, updated, "Tarea actualizada correctamente");
   } catch (error) {
-    res.status(500).json({ message: 'Error al actualizar', error: error.message });
+    fail(res, "Error al actualizar la tarea");
   }
 };
 
-// remove — DELETE /api/tasks/:id — Elimina una tarea del array
-exports.remove = (req, res) => {
+export const remove = (req, res) => {
   try {
-    const db = readDB();
-    const idx = db.tasks.findIndex(t => t.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ message: 'Tarea no encontrada' });
-    db.tasks.splice(idx, 1);
-    writeDB(db);
-    res.json({ message: 'Tarea eliminada con éxito', id: req.params.id });
+    const deleted = TaskModel.delete(req.params.id);
+    if (!deleted) return fail(res, `Tarea con ID ${req.params.id} no encontrada`, 404);
+    ok(res, { id: req.params.id }, "Tarea eliminada correctamente");
   } catch (error) {
-    res.status(500).json({ message: 'Error al eliminar', error: error.message });
+    fail(res, "Error al eliminar la tarea");
   }
 };
 
-// updateStatus — PATCH /api/tasks/:id/status — Cambia solo el estado de una tarea
-exports.updateStatus = (req, res) => {
+export const updateStatus = (req, res) => {
   try {
     const { status } = req.body;
-    const validStatuses = ['Pendiente', 'En progreso', 'Completada'];
+    const validStatuses = ["Pendiente", "En progreso", "Completada"];
     if (!status || !validStatuses.includes(status)) {
-      return res.status(400).json({ message: 'Estado inválido' });
+      return fail(res, "Estado inválido. Use: Pendiente, En progreso o Completada", 400);
     }
-    const db = readDB();
-    const idx = db.tasks.findIndex(t => t.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ message: 'Tarea no encontrada' });
-    db.tasks[idx].status = status;
-    writeDB(db);
-    res.json(db.tasks[idx]);
+    const updated = TaskModel.update(req.params.id, { status });
+    if (!updated) return fail(res, `Tarea con ID ${req.params.id} no encontrada`, 404);
+    ok(res, updated, "Estado actualizado correctamente");
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    fail(res, "Error al actualizar el estado");
   }
 };
 
-// assignUsers — POST /api/tasks/:taskId/assign — Agrega un usuario al array assignedUsers
-exports.assignUsers = (req, res) => {
+export const assignUsers = (req, res) => {
   try {
-    const db = readDB();
     const { taskId } = req.params;
     const { id, name } = req.body;
-    const task = db.tasks.find(t => t.id === taskId);
-    if (!task) return res.status(404).json({ message: 'Tarea no encontrada' });
+    const task = TaskModel.findById(taskId);
+    if (!task) return fail(res, `Tarea con ID ${taskId} no encontrada`, 404);
+
     if (!task.assignedUsers) task.assignedUsers = [];
-    const userExists = task.assignedUsers.some(u => u.id === id);
-    if (userExists) return res.status(400).json({ message: 'El usuario ya está asignado' });
+    const userExists = task.assignedUsers.some((u) => u.id === id);
+    if (userExists) return fail(res, "El usuario ya está asignado a esta tarea", 400);
+
     task.assignedUsers.push({ id, name });
-    writeDB(db);
-    res.json(task);
+    const updated = TaskModel.update(taskId, { assignedUsers: task.assignedUsers });
+    ok(res, updated, "Usuario asignado correctamente");
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    fail(res, "Error al asignar usuario");
   }
 };
 
-// getAssignedUsers — GET /api/tasks/:taskId/users — Retorna los usuarios asignados a una tarea
-exports.getAssignedUsers = (req, res) => {
-  const { tasks } = readDB();
-  const task = tasks.find(t => t.id === req.params.taskId);
-  if (!task) return res.status(404).json({ message: 'Tarea no encontrada' });
-  res.json(task.assignedUsers || []);
-};
-
-// removeUserAssignment — DELETE /api/tasks/:taskId/users/:userId — Quita un usuario de assignedUsers
-exports.removeUserAssignment = (req, res) => {
+export const getAssignedUsers = (req, res) => {
   try {
-    const db = readDB();
-    const { taskId, userId } = req.params;
-    const task = db.tasks.find(t => t.id === taskId);
-    if (!task) return res.status(404).json({ message: 'Tarea no encontrada' });
-    if (task.assignedUsers) {
-      task.assignedUsers = task.assignedUsers.filter(u => u.id !== userId);
-      writeDB(db);
-    }
-    res.json(task);
+    const task = TaskModel.findById(req.params.taskId);
+    if (!task) return fail(res, `Tarea con ID ${req.params.taskId} no encontrada`, 404);
+    ok(res, task.assignedUsers || [], "Usuarios asignados a la tarea");
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    fail(res, "Error al obtener usuarios asignados");
   }
 };
 
-// filter — GET /api/tasks/filter — Filtra tareas por status, userId, dateFrom y dateTo
-exports.filter = (req, res) => {
-  let { tasks } = readDB();
-  const { status, userId, dateFrom, dateTo } = req.query;
+export const removeUserAssignment = (req, res) => {
+  try {
+    const { taskId, userId } = req.params;
+    const task = TaskModel.findById(taskId);
+    if (!task) return fail(res, `Tarea con ID ${taskId} no encontrada`, 404);
 
-  if (userId) {
-    tasks = tasks.filter(task =>
-      task.assignedUsers && task.assignedUsers.some(u => String(u.id) === String(userId))
-    );
-  }
-  if (status) {
-    tasks = tasks.filter(t => t.status === status);
-  }
-  if (dateFrom) {
-    const from = new Date(dateFrom);
-    tasks = tasks.filter(t => new Date(t.createdAt) >= from);
-  }
-  if (dateTo) {
-    const to = new Date(dateTo);
-    to.setHours(23, 59, 59, 999);
-    tasks = tasks.filter(t => new Date(t.createdAt) <= to);
-  }
-  res.json(tasks);
-};
-
-// getDashboard — GET /api/dashboard — Estadisticas globales: totales por estado y por usuario
-exports.getDashboard = (req, res) => {
-  const { tasks, users } = readDB();
-  const total = tasks.length;
-  const completadas = tasks.filter(t => t.status === 'Completada').length;
-  const pendientes = tasks.filter(t => t.status === 'Pendiente').length;
-  const enProgreso = tasks.filter(t => t.status === 'En progreso').length;
-
-  const userMap = {};
-  tasks.forEach(t => {
-    if (t.assignedUsers) {
-      t.assignedUsers.forEach(u => {
-        const uid = String(u.id);
-        if (!userMap[uid]) {
-          userMap[uid] = { userId: uid, userName: u.name, count: 0 };
-        }
-        userMap[uid].count++;
-      });
+    if (task.assignedUsers) {
+      task.assignedUsers = task.assignedUsers.filter((u) => u.id !== userId);
+      TaskModel.update(taskId, { assignedUsers: task.assignedUsers });
     }
-  });
-  const porUsuario = Object.values(userMap);
+    ok(res, task, "Usuario removido de la tarea");
+  } catch (error) {
+    fail(res, "Error al remover usuario de la tarea");
+  }
+};
 
-  res.json({
-    total, completadas, pendientes, enProgreso,
-    porStatus: [
-      { status: 'Pendiente', count: pendientes },
-      { status: 'En progreso', count: enProgreso },
-      { status: 'Completada', count: completadas }
-    ],
-    porUsuario,
-    totalUsuarios: users.length
-  });
+export const filter = (req, res) => {
+  try {
+    const tasks = TaskModel.filter(req.query);
+    ok(res, tasks, "Tareas filtradas correctamente");
+  } catch (error) {
+    fail(res, "Error al filtrar tareas");
+  }
+};
+
+export const getDashboard = (req, res) => {
+  try {
+    const dashboard = TaskModel.getDashboard();
+    ok(res, dashboard, "Estadísticas del dashboard");
+  } catch (error) {
+    fail(res, "Error al obtener estadísticas");
+  }
+};
+
+export const getUserTasks = (req, res) => {
+  try {
+    const tasks = TaskModel.findByUserId(req.params.userId);
+    ok(res, tasks, `Tareas del usuario ${req.params.userId}`);
+  } catch (error) {
+    fail(res, "Error al obtener tareas del usuario");
+  }
 };

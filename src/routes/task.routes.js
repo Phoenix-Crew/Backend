@@ -1,20 +1,22 @@
-// ============================================================
-// task.routes.js — Rutas CRUD para el modulo de tareas
-// ============================================================
+import { Router } from "express";
+import {
+  getAll, getById, create, update, remove,
+  updateStatus, assignUsers, getAssignedUsers,
+  removeUserAssignment, filter,
+} from "../controllers/task.controller.js";
 
-const router = require('express').Router();
-const taskController = require('../controllers/task.controller');
+const router = Router();
 
-router.post('/',                    taskController.create);         // POST   /api/tasks
-router.get('/',                     taskController.getAll);         // GET    /api/tasks
-router.get('/filter',               taskController.filter);         // GET    /api/tasks/filter?status=&userId=&dateFrom=&dateTo=
-router.get('/:id',                  taskController.getById);        // GET    /api/tasks/:id
-router.put('/:id',                  taskController.update);         // PUT    /api/tasks/:id
-router.patch('/:id/status',         taskController.updateStatus);   // PATCH  /api/tasks/:id/status
-router.patch('/:id',                taskController.update);         // PATCH  /api/tasks/:id
-router.delete('/:id',               taskController.remove);         // DELETE /api/tasks/:id
-router.post('/:taskId/assign',      taskController.assignUsers);    // POST   /api/tasks/:taskId/assign
-router.get('/:taskId/users',        taskController.getAssignedUsers);       // GET    /api/tasks/:taskId/users
-router.delete('/:taskId/users/:userId', taskController.removeUserAssignment); // DELETE /api/tasks/:taskId/users/:userId
+router.get("/filter", filter);
+router.get("/", getAll);
+router.get("/:id", getById);
+router.post("/", create);
+router.put("/:id", update);
+router.patch("/:id", update);
+router.patch("/:id/status", updateStatus);
+router.delete("/:id", remove);
+router.post("/:taskId/assign", assignUsers);
+router.get("/:taskId/users", getAssignedUsers);
+router.delete("/:taskId/users/:userId", removeUserAssignment);
 
-module.exports = router;
+export default router;
