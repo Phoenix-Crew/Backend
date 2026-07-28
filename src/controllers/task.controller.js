@@ -3,6 +3,14 @@
 // ============================================================
 // Cada funcion maneja la logica de negocio de un endpoint.
 // Lee/escribe en db.json a traves de readDB/writeDB.
+//
+// [B2 - Stiven] Verificar que funciones con BD real
+// ============================================================
+// Cuando B1 migre models/index.js a SQL, estos controladores
+// deben seguir funcionando SIN cambios porque dependen de
+// readDB/writeDB que tendrán la misma interfaz.
+// Probar cada método contra la BD.
+// ============================================================
 
 const { readDB, writeDB } = require('../models');
 

@@ -4,6 +4,15 @@
 // Monta los routers de auth, usuarios y tareas, expone el
 // endpoint /api/dashboard y arranca el servidor en el puerto
 // definido por PORT (por defecto 3002).
+//
+// [B3 - Brian] Configurar conexión a BD y variables de entorno
+// ============================================================
+// 1. Agregar dotenv y cargar config al inicio
+// 2. Crear archivo .env con DB_HOST, DB_PORT, DB_USER, etc.
+// 3. Agregar .env al .gitignore
+// 4. Verificar conexión a BD antes de app.listen()
+// 5. Si no hay BD, mostrar error y no iniciar servidor
+// ============================================================
 
 const express = require('express');
 const cors = require('cors');
