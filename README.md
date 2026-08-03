@@ -16,9 +16,9 @@ npm install
 
 ## Configuración de la base de datos
 
-### 1. Crear la base de datos
+> La primera vez: `src/database/init.sql` crea la BD `gestion_tareas`, el usuario `app_user` y las tablas `users`, `tasks` y `task_users`. **Es la única creación manual necesaria** (requiere privilegios de administrador de MySQL).
 
-Ejecuta el script `src/database/init.sql` (crea la BD `gestion_tareas`, el usuario `app_user` y las tablas `users`, `tasks` y `task_users`):
+### 1. Crear la base de datos (solo la primera vez)
 
 ```bash
 mysql -u root -p < src/database/init.sql
@@ -59,21 +59,23 @@ DB_NAME=gestion_tareas
 
 ## Ejecución
 
-El servidor solo arranca si la conexión a la base de datos es exitosa. Si falla, muestra el error y se detiene.
+El servidor, al iniciar: valida la conexión, **crea las tablas automáticamente si no existen** y **siembra 5 usuarios de prueba si la tabla está vacía**. Si no hay BD disponible, muestra el error y se detiene.
 
 ```bash
 npm start        # Producción
 npm run dev      # Desarrollo (reinicio automático con --watch)
+npm run seed     # (Opcional) Sembrar datos de prueba manualmente
 ```
 
 ## Estructura
 
 ```
 src/
-├── config/database.js   # Pool de conexión a MySQL
+├── config/database.js   # Pool de conexión a MySQL + initDatabase (auto-crea tablas)
 ├── controllers/         # Lógica de negocio por endpoint
-├── database/init.sql    # Script de creación de la BD y tablas
-├── models/              # Capa de persistencia
+├── database/init.sql    # Script de creación de la BD, usuario y tablas
+├── database/seed.js     # Seed idempotente de usuarios de prueba
+├── models/              # Capa de persistencia (user.model.js, task.model.js)
 └── routes/              # Definición de rutas
 ```
 
