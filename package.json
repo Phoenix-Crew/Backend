@@ -7,11 +7,11 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js"
   },
-  // [B3 - Brian] Agregar: "mysql2": "^3.11.0" (o pg si es PostgreSQL)
-  // [B3 - Brian] Agregar: "dotenv": "^16.4.0" para variables de entorno
   "dependencies": {
     "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
     "express": "^4.21.0",
+    "mysql2": "^3.23.2",
     "uuid": "^10.0.0"
   }
 }

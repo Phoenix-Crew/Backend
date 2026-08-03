@@ -4,20 +4,15 @@
 // Monta los routers de auth, usuarios y tareas, expone el
 // endpoint /api/dashboard y arranca el servidor en el puerto
 // definido por PORT (por defecto 3002).
-//
-// [B3 - Brian] Configurar conexión a BD y variables de entorno
-// ============================================================
-// 1. Agregar dotenv y cargar config al inicio
-// 2. Crear archivo .env con DB_HOST, DB_PORT, DB_USER, etc.
-// 3. Agregar .env al .gitignore
-// 4. Verificar conexión a BD antes de app.listen()
-// 5. Si no hay BD, mostrar error y no iniciar servidor
-// ============================================================
+// El servidor solo inicia si la conexión a la BD es exitosa.
+
+require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
+const { testConnection } = require('./config/database');
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
 const taskRoutes = require('./routes/task.routes');
@@ -52,7 +47,23 @@ app.get('/api', (req, res) => {
   res.json({ message: 'API REST - Gestión de Tareas v3.0', status: 'running' });
 });
 
-// Inicia el servidor en todas las interfaces de red
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
-});
+// Verifica la conexión a la BD antes de arrancar el servidor.
+// Si no hay BD disponible, muestra el error y no inicia el servidor.
+async function start() {
+  try {
+    await testConnection();
+    console.log('Conexión a la base de datos exitosa');
+  } catch (err) {
+    console.error('ERROR: No se pudo conectar a la base de datos.');
+    console.error('Revise las variables de entorno en .env y ejecute init.sql');
+    console.error(err.message);
+    process.exit(1);
+  }
+
+  // Inicia el servidor en todas las interfaces de red
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  });
+}
+
+start();
