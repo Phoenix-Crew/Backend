@@ -4,6 +4,13 @@
 // CRUD completo de usuarios + consulta de tareas por usuario.
 // Cada funcion recibe (req, res), lee/escribe en db.json
 // y retorna JSON con los datos del usuario (sin password).
+//
+// [B2 - Stiven] Verificar que funciones con BD real
+// ============================================================
+// Igual que task.controller: cuando B1 migre el modelo,
+// estos métodos deben seguir funcionando sin cambios.
+// Probar CRUD completo contra la BD.
+// ============================================================
 
 const { readDB, writeDB } = require('../models');
 

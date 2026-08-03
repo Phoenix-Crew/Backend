@@ -1,6 +1,10 @@
 // ============================================================
 // auth.controller.js — Controlador de autenticacion
 // ============================================================
+// [B2 - Stiven] Verificar login con BD real
+// Depende de readDB() → cuando models/index.js use BD,
+// debe seguir funcionando igual.
+// ============================================================
 
 const { readDB } = require('../models');
 
