@@ -1,18 +1,27 @@
 // ============================================================
 // auth.controller.js — Controlador de autenticacion
 // ============================================================
-// [B2 - Stiven] Verificar login con BD real
-// Depende de readDB() → cuando models/index.js use BD,
-// debe seguir funcionando igual.
-// ============================================================
+// login consulta el usuario por email en la base de datos
+// (pendiente de hashing + JWT).
 
-const { readDB } = require('../models');
+const { UserModel } = require('../models');
 
-// login — POST /api/auth/login — Valida credenciales (pendiente de hashing + JWT)
-exports.login = (req, res) => {
-  const { email, password } = req.body;
-  const { users } = readDB();
-  const user = users.find(u => u.email === email);
-  if (!user) return res.status(401).json({ message: 'Credenciales inválidas' });
-  res.json({ message: 'Login pendiente de implementar', user });
+// login — POST /api/auth/login — Valida credenciales contra la BD
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email y contraseña son obligatorios' });
+    }
+
+    const user = await UserModel.findByEmail(email);
+    if (!user || user.password !== password) {
+      return res.status(401).json({ message: 'Credenciales inválidas' });
+    }
+
+    const { password: _, ...safeUser } = user;
+    res.json({ message: 'Login pendiente de implementar', user: safeUser });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al iniciar sesión', error: error.message });
+  }
 };
