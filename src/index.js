@@ -10,9 +10,9 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 
 const { testConnection } = require('./config/database');
+const { runSeed } = require('./database/seed');
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
 const taskRoutes = require('./routes/task.routes');
@@ -31,31 +31,24 @@ app.use('/api/tasks', taskRoutes);
 // GET /api/dashboard — Estadisticas globales (total, por estado, distribucion por usuario)
 app.get('/api/dashboard', taskController.getDashboard);
 
-// GET /api/users/:userId/tasks — Tareas de un usuario especifico (filtra por userIds o userId)
-app.get('/api/users/:userId/tasks', (req, res) => {
-  const { readDB } = require('./models');
-  const { tasks } = readDB();
-  const userTasks = tasks.filter(t => {
-    if (Array.isArray(t.userIds)) return t.userIds.includes(req.params.userId);
-    return String(t.userId) === String(req.params.userId);
-  });
-  res.json(userTasks);
-});
-
 // GET /api — Health check basico de la API
 app.get('/api', (req, res) => {
   res.json({ message: 'API REST - Gestión de Tareas v3.0', status: 'running' });
 });
 
 // Verifica la conexión a la BD antes de arrancar el servidor.
-// Si no hay BD disponible, muestra el error y no inicia el servidor.
+// Crea las tablas si no existen y siembra datos de prueba la primera vez.
 async function start() {
   try {
     await testConnection();
+    const seeded = await runSeed();
     console.log('Conexión a la base de datos exitosa');
+    console.log(seeded
+      ? 'Datos de prueba sembrados (5 usuarios)'
+      : 'Base de datos lista (usuarios ya existentes)');
   } catch (err) {
     console.error('ERROR: No se pudo conectar a la base de datos.');
-    console.error('Revise las variables de entorno en .env y ejecute init.sql');
+    console.error('Revise las variables de entorno en .env y ejecute la primera vez src/database/init.sql');
     console.error(err.message);
     process.exit(1);
   }
