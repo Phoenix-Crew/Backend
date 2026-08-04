@@ -48,7 +48,7 @@ async function start() {
       : 'Base de datos lista (usuarios ya existentes)');
   } catch (err) {
     console.error('ERROR: No se pudo conectar a la base de datos.');
-    console.error('Revise las variables de entorno en .env y ejecute la primera vez src/database/init.sql');
+    console.error('Revise las variables de entorno en .env y ejecute la primera vez: npm run db:init');
     console.error(err.message);
     process.exit(1);
   }
