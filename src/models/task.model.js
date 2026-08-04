@@ -1,22 +1,37 @@
 // ============================================================
 // task.model.js — Capa de persistencia de tareas (MySQL)
 // ============================================================
-// Expone las operaciones CRUD sobre las tablas `tasks` y
-// `task_users`, hidratando assignedUsers como [{ id, name }]
-// mediante JOIN para mantener el contrato del frontend.
+// FLUJO: task.controller.js llama a estas funciones
+// → cada una ejecuta SQL con `pool` (config/database.js)
+// → MySQL responde filas → se devuelven al controlador
+//
+// MODULARIZACIÓN INTERNA:
+//   insertAssignments / getAssignedUsersFor / hydrate = helpers privados
+//   findAll / findById / create / update / ... = funciones exportadas
+//
+// CONTRATO CON EL FRONTEND: cada tarea devuelta incluye
+// assignedUsers: [{ id, name }] (rellenado con JOIN a task_users y users)
+// ============================================================
 
+// Importa el pool de conexiones MySQL (viene de config/database.js)
 const { pool } = require('../config/database');
 
+// Columnas de la tabla tasks con alias t (se usa en todos los SELECT)
 const TASK_FIELDS = 't.id, t.title, t.description, t.status, t.createdAt';
 
-// insertAssignments — Inserta en task_users las asignaciones de una tarea
-// (omite los usuarios que ya estaban asignados)
+// ============================================================
+// insertAssignments (helper privado) — Inserta asignaciones en task_users
+// ORIGEN: create() y assignUsers() (misma transacción)
+// QUÉ HACE: por cada usuario { id } comprueba si ya está asignado
+// y si no, hace INSERT INTO task_users (task_id, user_id)
+// ============================================================
 async function insertAssignments(conn, taskId, entries) {
   const list = Array.isArray(entries) ? entries : [entries];
   for (const entry of list) {
     if (!entry) continue;
-    const userId = entry.id ?? entry.userId ?? entry;
+    const userId = entry.id ?? entry.userId ?? entry; // acepta { id }, { userId } o el id directo
     if (userId == null) continue;
+    // Evita duplicados: consulta si la asignación ya existe
     const [exists] = await conn.query(
       'SELECT 1 FROM task_users WHERE task_id = ? AND user_id = ?',
       [taskId, userId]
@@ -30,9 +45,16 @@ async function insertAssignments(conn, taskId, entries) {
   }
 }
 
-// getAssignedUsersFor — Devuelve { taskId: [{ id, name }, ...] } para un set de tareas
+// ============================================================
+// getAssignedUsersFor (helper privado) — Usuarios asignados de varias tareas
+// QUÉ HACE: recibe un array de task_id y hace UN solo SELECT con IN (...)
+// SQL: SELECT tu.task_id, u.id, u.name FROM task_users tu
+//      INNER JOIN users u ON u.id = tu.user_id WHERE tu.task_id IN (...)
+// QUÉ DEVUELVE: { taskId: [{ id, name }, ...] } agrupado por tarea
+// ============================================================
 async function getAssignedUsersFor(taskIds) {
   if (taskIds.length === 0) return {};
+  // Crea los placeholders ? ? ? según cuántas tareas haya (evita inyección SQL)
   const placeholders = taskIds.map(() => '?').join(', ');
   const [rows] = await pool.query(
     `SELECT tu.task_id, u.id, u.name
@@ -42,6 +64,7 @@ async function getAssignedUsersFor(taskIds) {
       ORDER BY u.id`,
     taskIds
   );
+  // Agrupa las filas por task_id → { 1: [{id,name}], 2: [...] }
   const map = {};
   rows.forEach((r) => {
     if (!map[r.task_id]) map[r.task_id] = [];
@@ -50,20 +73,32 @@ async function getAssignedUsersFor(taskIds) {
   return map;
 }
 
-// hydrate — Agrega a cada tarea su array assignedUsers
+// ============================================================
+// hydrate (helper privado) — Agrega assignedUsers a cada tarea
+// ORIGEN: todas las funciones que devuelven tareas (findAll, findById, ...)
+// QUÉ HACE: junta las tareas con sus asignados en UNA consulta eficiente
+// QUÉ DEVUELVE: el array de tareas con la propiedad assignedUsers
+// ============================================================
 async function hydrate(tasks) {
   if (!tasks.length) return [];
   const map = await getAssignedUsersFor(tasks.map((t) => t.id));
   return tasks.map((t) => ({ ...t, assignedUsers: map[t.id] || [] }));
 }
 
+// ============================================================
 // findAll — Todas las tareas con sus usuarios asignados
+// ORIGEN: task.controller.getAll → DESTINO: pool.query + hydrate
+// ============================================================
 exports.findAll = async () => {
   const [rows] = await pool.query(`SELECT ${TASK_FIELDS} FROM tasks t ORDER BY t.id`);
   return hydrate(rows);
 };
 
-// findById — Busca una tarea por id con sus usuarios asignados
+// ============================================================
+// findById — Busca una tarea por id con sus asignados
+// ORIGEN: task.controller.getById / getAssignedUsers / assignUsers ...
+// QUÉ DEVUELVE: la tarea hidratada o null si no existe
+// ============================================================
 exports.findById = async (id) => {
   const [rows] = await pool.query(`SELECT ${TASK_FIELDS} FROM tasks t WHERE t.id = ?`, [id]);
   if (!rows[0]) return null;
@@ -71,7 +106,11 @@ exports.findById = async (id) => {
   return hydrated;
 };
 
-// findByUserId — Tareas asignadas a un usuario (JOIN con task_users)
+// ============================================================
+// findByUserId — Tareas asignadas a un usuario
+// ORIGEN: user.controller.getUserTasks (GET /api/users/:userId/tasks)
+// SQL: SELECT tasks INNER JOIN task_users WHERE tu.user_id = ?
+// ============================================================
 exports.findByUserId = async (userId) => {
   const [rows] = await pool.query(
     `SELECT ${TASK_FIELDS} FROM tasks t
@@ -83,30 +122,42 @@ exports.findByUserId = async (userId) => {
   return hydrate(rows);
 };
 
-// create — INSERT de tarea + sus asignaciones en una transacción
+// ============================================================
+// create — INSERT de tarea + asignaciones en UNA transacción
+// ORIGEN: task.controller.create → DESTINO: conn (transacción)
+// FLUJO: beginTransaction → INSERT tarea → insertAssignments
+// → commit (si todo OK) o rollback (si algo falla) → devuelve la tarea creada
+// POR QUÉ TRANSACCIÓN: si falla una asignación, no queda la tarea a medias
+// ============================================================
 exports.create = async ({ title, description, assignedUsers }) => {
-  const conn = await pool.getConnection();
+  const conn = await pool.getConnection(); // Toma una conexión exclusiva del pool
   try {
     await conn.beginTransaction();
     const [result] = await conn.query(
       'INSERT INTO tasks (title, description, status, createdAt) VALUES (?, ?, ?, NOW())',
-      [title, description || '', 'Pendiente']
+      [title, description || '', 'Pendiente'] // Estado inicial: Pendiente
     );
     const taskId = result.insertId;
+    // Inserta las asignaciones solo si vinieron usuarios
     if (Array.isArray(assignedUsers) && assignedUsers.length > 0) {
       await insertAssignments(conn, taskId, assignedUsers);
     }
-    await conn.commit();
+    await conn.commit(); // Confirma todo
     return exports.findById(taskId);
   } catch (error) {
-    await conn.rollback();
+    await conn.rollback(); // Deshace todo si hubo error
     throw error;
   } finally {
-    conn.release();
+    conn.release(); // Devuelve la conexión al pool
   }
 };
 
-// update — UPDATE parcial de una tarea; retorna la tarea actualizada
+// ============================================================
+// update — UPDATE parcial de una tarea
+// ORIGEN: task.controller.update → DESTINO: pool.query
+// QUÉ HACE: arma el SET solo con title/description/status definidos
+// QUÉ DEVUELVE: la tarea actualizada (relee con findById)
+// ============================================================
 exports.update = async (id, { title, description, status }) => {
   const sets = [];
   const values = [];
@@ -121,16 +172,29 @@ exports.update = async (id, { title, description, status }) => {
   return exports.findById(id);
 };
 
-// updateStatus — Cambia solo el estado de una tarea
+// ============================================================
+// updateStatus — Cambia solo el estado
+// ORIGEN: task.controller.updateStatus → DESTINO: update (reutilización)
+// QUÉ HACE: delega en update() pasando solo { status }
+// ============================================================
 exports.updateStatus = (id, status) => exports.update(id, { status });
 
-// delete — DELETE de una tarea (cascade elimina sus filas en task_users)
+// ============================================================
+// delete — DELETE de una tarea
+// ORIGEN: task.controller.remove → DESTINO: pool.query
+// NOTA: la FK de task_users con ON DELETE CASCADE limpia sus asignaciones
+// QUÉ DEVUELVE: true si borró al menos 1 fila
+// ============================================================
 exports.delete = async (id) => {
   const [result] = await pool.query('DELETE FROM tasks WHERE id = ?', [id]);
   return result.affectedRows > 0;
 };
 
-// assignUsers — Asigna uno o más usuarios a una tarea (transacción); null si no existe
+// ============================================================
+// assignUsers — Asigna uno o más usuarios a una tarea (transacción)
+// ORIGEN: task.controller.assignUsers → DESTINO: conn (transacción)
+// QUÉ DEVUELVE: la tarea actualizada, o null si la tarea no existe
+// ============================================================
 exports.assignUsers = async (taskId, entries) => {
   const task = await exports.findById(taskId);
   if (!task) return null;
@@ -149,14 +213,22 @@ exports.assignUsers = async (taskId, entries) => {
   return exports.findById(taskId);
 };
 
-// getAssignedUsers — Usuarios asignados a una tarea; null si no existe la tarea
+// ============================================================
+// getAssignedUsers — Usuarios asignados a una tarea
+// ORIGEN: task.controller.getAssignedUsers / assignUsers (verificación)
+// QUÉ DEVUELVE: array [{ id, name }] o null si la tarea no existe
+// ============================================================
 exports.getAssignedUsers = async (taskId) => {
   const task = await exports.findById(taskId);
   if (!task) return null;
   return task.assignedUsers;
 };
 
-// removeUserAssignment — Quita la asignación de un usuario a una tarea
+// ============================================================
+// removeUserAssignment — Quita la asignación de un usuario
+// ORIGEN: task.controller.removeUserAssignment → DESTINO: pool.query
+// SQL: DELETE FROM task_users WHERE task_id = ? AND user_id = ?
+// ============================================================
 exports.removeUserAssignment = async (taskId, userId) => {
   const task = await exports.findById(taskId);
   if (!task) return null;
@@ -167,20 +239,29 @@ exports.removeUserAssignment = async (taskId, userId) => {
   return exports.findById(taskId);
 };
 
-// filter — Filtro combinado por status, userId y rango de fechas
+// ============================================================
+// filter — Filtro combinado (panel admin del frontend)
+// ORIGEN: task.controller.filter → DESTINO: pool.query
+// PARÁMETROS (query string): status, userId, dateFrom, dateTo
+// QUÉ HACE: arma el WHERE dinámicamente según los parámetros presentes.
+// Si viene userId, agrega un INNER JOIN con task_users.
+// dateTo se ajusta al final del día (23:59:59) para incluir el día completo
+// ============================================================
 exports.filter = async ({ status, userId, dateFrom, dateTo }) => {
   const where = [];
   const values = [];
 
+  // Cada filtro presente agrega su condición al WHERE
   if (status) { where.push('t.status = ?'); values.push(status); }
   if (dateFrom) { where.push('t.createdAt >= ?'); values.push(new Date(dateFrom)); }
   if (dateTo) {
     const end = new Date(dateTo);
-    end.setHours(23, 59, 59, 999);
+    end.setHours(23, 59, 59, 999); // Incluye todo el día seleccionado
     where.push('t.createdAt <= ?');
     values.push(end);
   }
 
+  // Construye la consulta base (con JOIN si se filtra por usuario)
   let sql = `SELECT ${TASK_FIELDS} FROM tasks t`;
   if (userId) {
     sql += ' INNER JOIN task_users tu ON tu.task_id = t.id';
@@ -194,19 +275,33 @@ exports.filter = async ({ status, userId, dateFrom, dateTo }) => {
   return hydrate(rows);
 };
 
-// getDashboard — Estadísticas agregadas con SQL (total, por estado, por usuario)
+// ============================================================
+// getDashboard — Estadísticas agregadas (GET /api/dashboard)
+// ORIGEN: src/index.js → task.controller.getDashboard
+// QUÉ HACE: varias consultas con funciones agregadas SQL:
+//   COUNT(*) total y por cada estado + COUNT de usuarios + GROUP BY por usuario
+// QUÉ DEVUELVE: { total, completadas, pendientes, enProgreso,
+//                porStatus: [...], porUsuario: [...], totalUsuarios }
+// QUIÉN LO CONSUME: frontend tareasService.loadAdminPanel → fetchDashboard
+// ============================================================
 exports.getDashboard = async () => {
+  // Total de tareas
   const [[{ total }]] = await pool.query('SELECT COUNT(*) AS total FROM tasks');
+  // Tareas completadas (status = 'Completada')
   const [[{ completadas }]] = await pool.query(
     "SELECT COUNT(*) AS completadas FROM tasks WHERE status = 'Completada'"
   );
+  // Tareas pendientes
   const [[{ pendientes }]] = await pool.query(
     "SELECT COUNT(*) AS pendientes FROM tasks WHERE status = 'Pendiente'"
   );
+  // Tareas en progreso
   const [[{ enProgreso }]] = await pool.query(
     "SELECT COUNT(*) AS enProgreso FROM tasks WHERE status = 'En progreso'"
   );
+  // Total de usuarios registrados
   const [[{ totalUsuarios }]] = await pool.query('SELECT COUNT(*) AS totalUsuarios FROM users');
+  // Distribución por usuario: cuántas tareas tiene cada uno (JOIN + GROUP BY)
   const [porUsuario] = await pool.query(
     `SELECT tu.user_id AS userId, u.name AS userName, COUNT(*) AS count
        FROM task_users tu
@@ -215,6 +310,7 @@ exports.getDashboard = async () => {
       ORDER BY u.name`
   );
 
+  // Arma el objeto de respuesta con la estructura que espera el frontend
   return {
     total,
     completadas,
