@@ -15,13 +15,21 @@ git clone <url-del-repositorio>
 cd Backend
 
 npm install      # instala dependencias y genera .env automáticamente
-npm run db:init  # SOLO la primera vez: crea la BD, el usuario grupo4 y las tablas
+npm run db:init -- --user=grupo4 --password=grupo4  # SOLO la primera vez: crea la BD, el usuario grupo4 y las tablas
 npm run dev
 ```
 
-> `npm run db:init` pide el usuario y la contraseña **admin** de MySQL (ej: `root`).
-> Alternativa sin prompt: `npm run db:init -- --user=root --password=tu_password`
-> O con variables de entorno: `DB_ADMIN_USER=root DB_ADMIN_PASSWORD=tu_password npm run db:init`
+Salida esperada de `db:init`:
+
+```
+Conectado a MySQL (127.0.0.1:3306) como 'grupo4'. Ejecutando init.sql...
+Omitido (ya concedido): GRANT ALL PRIVILEGES ON *.* TO 'grupo4'@'localhost'...
+Base de datos lista: BD gestion_tareas, usuario grupo4 y tablas creadas/verificadas.
+```
+
+> La línea `-- --user=grupo4 --password=grupo4` evita el prompt interactivo (recomendado en Git Bash/Windows, donde el prompt oculto puede fallar).
+> Si prefieres el prompt: `npm run db:init` (pide usuario y contraseña **admin** de MySQL).
+> O con variables de entorno: `DB_ADMIN_USER=grupo4 DB_ADMIN_PASSWORD=grupo4 npm run db:init`
 
 ## Qué hace cada comando
 
