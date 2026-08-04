@@ -1,11 +1,14 @@
 -- Script de inicialización de la base de datos
 -- Base de datos: gestion_tareas
--- Ajustar usuario/contraseña según entorno local (.env)
+-- Ejecutar con: npm run db:init
+-- Idempotente y auto-curativo: se puede ejecutar las veces que sea necesario.
+
+CREATE USER IF NOT EXISTS 'grupo4'@'localhost' IDENTIFIED BY 'grupo4';
+ALTER USER 'grupo4'@'localhost' IDENTIFIED BY 'grupo4';
 
 CREATE DATABASE IF NOT EXISTS gestion_tareas;
 
-CREATE USER IF NOT EXISTS 'app_user'@'localhost' IDENTIFIED BY '#ADSO_node';
-GRANT ALL PRIVILEGES ON gestion_tareas.* TO 'app_user'@'localhost';
+GRANT ALL PRIVILEGES ON *.* TO 'grupo4'@'localhost';
 FLUSH PRIVILEGES;
 
 USE gestion_tareas;
