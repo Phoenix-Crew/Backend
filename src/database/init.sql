@@ -28,11 +28,11 @@ CREATE TABLE IF NOT EXISTS tasks (
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Este comentario SQL marca la tabla puente "task_users": guarda quién está asignado a cada tarea y permite la relación muchos-a-muchos, donde una tarea tiene varios usuarios y un usuario varias tareas
-CREATE TABLE IF NOT EXISTS task_users ( -- "CREATE TABLE" crea la tabla; "IF NOT EXISTS" solo la crea si no existe todavía; "task_users" es el nombre de la tabla puente; el paréntesis abre la lista de columnas
-    task_id INT NOT NULL,             -- "task_id" es la columna con el id de la tarea asignada; "INT" es el tipo entero y "NOT NULL" indica que siempre debe tener valor
-    user_id INT NOT NULL,             -- "user_id" es la columna con el id del usuario asignado; "INT" es entero y "NOT NULL" obliga a que siempre tenga valor
-    PRIMARY KEY (task_id, user_id),   -- "PRIMARY KEY" define la clave compuesta por ambas columnas: impide asignar dos veces el mismo usuario a la misma tarea
-    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE ON UPDATE CASCADE, -- "FOREIGN KEY" crea la llave foránea: "task_id" apunta a "id" de "tasks"; "ON DELETE CASCADE" borra la asignación si se borra la tarea y "ON UPDATE CASCADE" la actualiza si cambia el id
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE -- la segunda llave foránea: "user_id" apunta a "id" de "users"; con "CASCADE" la asignación se elimina o actualiza junto con el usuario
-); -- el paréntesis cierra las columnas y el punto y coma termina la sentencia
+-- Esta tabla puente guarda quién está asignado a cada tarea y permite la relación muchos-a-muchos
+CREATE TABLE IF NOT EXISTS task_users ( -- CREATE TABLE crea la tabla, IF NOT EXISTS solo la crea si no existe todavía
+    task_id INT NOT NULL,             -- columna con el id de la tarea asignada, tipo INT y NOT NULL obliga a que siempre tenga valor
+    user_id INT NOT NULL,             -- columna con el id del usuario asignado, tipo INT y NOT NULL obliga a que siempre tenga valor
+    PRIMARY KEY (task_id, user_id),   -- clave compuesta por ambas columnas, impide asignar dos veces el mismo usuario a la misma tarea
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE ON UPDATE CASCADE, -- llave foránea, task_id apunta a id de tasks, con CASCADE la asignación se borra o actualiza junto con la tarea
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE -- llave foránea, user_id apunta a id de users, con CASCADE la asignación se borra o actualiza junto con el usuario
+);
