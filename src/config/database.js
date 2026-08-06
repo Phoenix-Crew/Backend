@@ -43,14 +43,15 @@ async function initDatabase() {
   `);
 
   // Este comentario marca la tabla puente "task_users": guarda la asignación de un usuario a una tarea y permite la relación muchos-a-muchos entre tareas y usuarios
-  await pool.query(` // "await" espera; "pool.query" ejecuta la sentencia SQL sobre el pool de conexiones; el acento grave abre la sentencia de creación de la tabla
-    CREATE TABLE IF NOT EXISTS task_users ( // "CREATE TABLE" crea la tabla; "IF NOT EXISTS" solo la crea si no existe todavía; "task_users" es el nombre de la tabla puente; el paréntesis abre la lista de columnas
-      task_id INT NOT NULL,             // "task_id" es la columna que guarda el id de la tarea a la que se asigna; "INT" es el tipo entero y "NOT NULL" indica que siempre debe tener valor
-      user_id INT NOT NULL,             // "user_id" es la columna que guarda el id del usuario asignado; "INT" es entero y "NOT NULL" obliga a que siempre tenga valor
-      PRIMARY KEY (task_id, user_id),   // "PRIMARY KEY" define la clave principal compuesta por ambas columnas: así se garantiza que un usuario no se asigne dos veces a la misma tarea
-      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE ON UPDATE CASCADE, // "FOREIGN KEY" crea una llave foránea: "task_id" hace referencia a la columna "id" de la tabla "tasks"; "ON DELETE CASCADE" borra la asignación si se borra la tarea y "ON UPDATE CASCADE" la actualiza si cambia el id
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE // la segunda llave foránea: "user_id" hace referencia a "id" de "users"; con "CASCADE" la asignación se elimina o actualiza junto con el usuario
-    ) // el paréntesis cierra la lista de columnas de la tabla
+  await pool.query(`
+    -- "CREATE TABLE" crea la tabla; "IF NOT EXISTS" solo la crea si no existe todavía; "task_users" es la tabla puente que guarda quién está asignado a cada tarea
+    CREATE TABLE IF NOT EXISTS task_users (
+      task_id INT NOT NULL,             -- "task_id" es la columna que guarda el id de la tarea a la que se asigna; "INT" es el tipo entero y "NOT NULL" indica que siempre debe tener valor
+      user_id INT NOT NULL,             -- "user_id" es la columna que guarda el id del usuario asignado; "INT" es entero y "NOT NULL" obliga a que siempre tenga valor
+      PRIMARY KEY (task_id, user_id),   -- "PRIMARY KEY" define la clave principal compuesta por ambas columnas: así se garantiza que un usuario no se asigne dos veces a la misma tarea
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE ON UPDATE CASCADE, -- "FOREIGN KEY" crea una llave foránea: "task_id" hace referencia a la columna "id" de la tabla "tasks"; "ON DELETE CASCADE" borra la asignación si se borra la tarea y "ON UPDATE CASCADE" la actualiza si cambia el id
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE -- la segunda llave foránea: "user_id" hace referencia a "id" de "users"; con "CASCADE" la asignación se elimina o actualiza junto con el usuario
+    )
   `); // el acento grave cierra la sentencia SQL y el paréntesis cierra la llamada a "query"
 }
 
