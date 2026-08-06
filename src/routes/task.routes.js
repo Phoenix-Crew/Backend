@@ -1,31 +1,16 @@
-// ============================================================
-// task.routes.js — Rutas CRUD para el modulo de tareas
-// ============================================================
-// ORIGEN: montado en src/index.js como app.use('/api/tasks', taskRoutes)
-// DESTINO: todas las rutas delegan en task.controller.js → TaskModel (MySQL)
-// ============================================================
+const router = require('express').Router(); // "const" crea una constante; "router" es el enrutador de tareas; "require" importa un módulo; "'express'" es la librería del servidor; "'.Router()'" crea un objeto que agrupa rutas para montarlas después en el index
+const taskController = require('../controllers/task.controller'); // "const" crea otra constante; "taskController" agrupa las funciones de control de tareas; "require" importa; "'../controllers/task.controller'" es la ruta del archivo que maneja la lógica de cada ruta
 
-// Crea el Router de Express
-const router = require('express').Router();
-// Importa el controlador de tareas (lógica de negocio)
-// Viene de: controllers/task.controller.js
-const taskController = require('../controllers/task.controller');
+router.post('/',                    taskController.create);         // "router" es el enrutador; ".post" define una ruta que recibe peticiones POST; "'/'" es la raíz del enrutador (queda como POST /api/tasks); "taskController.create" es la función que se ejecuta: crea la tarea y la asigna a los usuarios en la tabla "task_users"
+router.get('/',                     taskController.getAll); // "router.get" define una ruta GET; "'/'" es la raíz (GET /api/tasks); "taskController.getAll" devuelve todas las tareas
+router.get('/filter',               taskController.filter); // "router.get" define GET; "'/filter'" es el subrecurso de filtros (GET /api/tasks/filter); "taskController.filter" filtra por estado, usuario y fechas
+router.get('/:id',                  taskController.getById);        // "router.get" define GET; "'/:id'" usa un parámetro de ruta, donde ":id" captura el id de la URL (GET /api/tasks/:id); "taskController.getById" devuelve la tarea con sus asignados
+router.put('/:id',                  taskController.update); // "router.put" define PUT; "'/:id'" captura el id (PUT /api/tasks/:id); "taskController.update" actualiza la tarea
+router.patch('/:id/status',         taskController.updateStatus); // "router.patch" define PATCH; "'/:id/status'" captura el id y apunta al estado (PATCH /api/tasks/:id/status); "taskController.updateStatus" cambia el estado de la tarea
+router.patch('/:id',                taskController.update); // "router.patch" define PATCH; "'/:id'" captura el id (PATCH /api/tasks/:id); "taskController.update" actualiza parcialmente la tarea
+router.delete('/:id',               taskController.remove); // "router.delete" define DELETE; "'/:id'" captura el id (DELETE /api/tasks/:id); "taskController.remove" elimina la tarea
+router.post('/:taskId/assign',      taskController.assignUsers);    // "router.post" define POST; "'/:taskId/assign'" captura ":taskId" de la URL y apunta a la acción "assign" (POST /api/tasks/:taskId/assign); "taskController.assignUsers" asigna un usuario a una tarea existente insertando en "task_users"
+router.get('/:taskId/users',        taskController.getAssignedUsers);       // "router.get" define GET; "'/:taskId/users'" captura el id de la tarea y pide sus usuarios (GET /api/tasks/:taskId/users); "taskController.getAssignedUsers" devuelve los usuarios asignados a esa tarea
+router.delete('/:taskId/users/:userId', taskController.removeUserAssignment); // "router.delete" define DELETE; "'/:taskId/users/:userId'" captura tanto el id de la tarea como el del usuario (DELETE /api/tasks/:taskId/users/:userId); "taskController.removeUserAssignment" quita la asignación del usuario de esa tarea
 
-// Cada línea = una ruta → función del controlador:
-// FLUJO GENERAL: fetch del frontend (tareasApi.js) → Express → taskController.*
-// → TaskModel.* → SQL sobre tasks / task_users → JSON
-
-router.post('/',                    taskController.create);         // POST   /api/tasks        → INSERT tarea + asignaciones (transacción)
-router.get('/',                     taskController.getAll);         // GET    /api/tasks        → SELECT todas + JOIN task_users
-router.get('/filter',               taskController.filter);         // GET    /api/tasks/filter?status=&userId=&dateFrom=&dateTo= → filtro combinado
-router.get('/:id',                  taskController.getById);        // GET    /api/tasks/:id    → SELECT una tarea con sus asignados
-router.put('/:id',                  taskController.update);         // PUT    /api/tasks/:id    → UPDATE completo
-router.patch('/:id/status',         taskController.updateStatus);   // PATCH  /api/tasks/:id/status → UPDATE solo del estado
-router.patch('/:id',                taskController.update);         // PATCH  /api/tasks/:id    → UPDATE parcial
-router.delete('/:id',               taskController.remove);         // DELETE /api/tasks/:id    → DELETE (cascade quita task_users)
-router.post('/:taskId/assign',      taskController.assignUsers);    // POST   /api/tasks/:taskId/assign → asigna un usuario existente
-router.get('/:taskId/users',        taskController.getAssignedUsers);       // GET    /api/tasks/:taskId/users → usuarios asignados
-router.delete('/:taskId/users/:userId', taskController.removeUserAssignment); // DELETE /api/tasks/:taskId/users/:userId → quita asignación
-
-// EXPORTA el router: lo consume src/index.js
-module.exports = router;
+module.exports = router; // "module.exports" exporta; "router" es el enrutador con todas las rutas, listo para montarlo en el index.js bajo la ruta /api/tasks
