@@ -1,16 +1,31 @@
-const router = require('express').Router(); // "const" crea una constante; "router" es el enrutador de tareas; "require" importa un módulo; "'express'" es la librería del servidor; "'.Router()'" crea un objeto que agrupa rutas para montarlas después en el index
-const taskController = require('../controllers/task.controller'); // "const" crea otra constante; "taskController" agrupa las funciones de control de tareas; "require" importa; "'../controllers/task.controller'" es la ruta del archivo que maneja la lógica de cada ruta
+// Cómo se lee: "Const router se asigna a require punto express punto Router."
+const router = require('express').Router(); // Qué hace: crea el enrutador de tareas, donde se definen los endpoints
+const taskController = require('../controllers/task.controller');
 
-router.post('/',                    taskController.create);         // "router" es el enrutador; ".post" define una ruta que recibe peticiones POST; "'/'" es la raíz del enrutador (queda como POST /api/tasks); "taskController.create" es la función que se ejecuta: crea la tarea y la asigna a los usuarios en la tabla "task_users"
-router.get('/',                     taskController.getAll); // "router.get" define una ruta GET; "'/'" es la raíz (GET /api/tasks); "taskController.getAll" devuelve todas las tareas
-router.get('/filter',               taskController.filter); // "router.get" define GET; "'/filter'" es el subrecurso de filtros (GET /api/tasks/filter); "taskController.filter" filtra por estado, usuario y fechas
-router.get('/:id',                  taskController.getById);        // "router.get" define GET; "'/:id'" usa un parámetro de ruta, donde ":id" captura el id de la URL (GET /api/tasks/:id); "taskController.getById" devuelve la tarea con sus asignados
-router.put('/:id',                  taskController.update); // "router.put" define PUT; "'/:id'" captura el id (PUT /api/tasks/:id); "taskController.update" actualiza la tarea
-router.patch('/:id/status',         taskController.updateStatus); // "router.patch" define PATCH; "'/:id/status'" captura el id y apunta al estado (PATCH /api/tasks/:id/status); "taskController.updateStatus" cambia el estado de la tarea
-router.patch('/:id',                taskController.update); // "router.patch" define PATCH; "'/:id'" captura el id (PATCH /api/tasks/:id); "taskController.update" actualiza parcialmente la tarea
-router.delete('/:id',               taskController.remove); // "router.delete" define DELETE; "'/:id'" captura el id (DELETE /api/tasks/:id); "taskController.remove" elimina la tarea
-router.post('/:taskId/assign',      taskController.assignUsers);    // "router.post" define POST; "'/:taskId/assign'" captura ":taskId" de la URL y apunta a la acción "assign" (POST /api/tasks/:taskId/assign); "taskController.assignUsers" asigna un usuario a una tarea existente insertando en "task_users"
-router.get('/:taskId/users',        taskController.getAssignedUsers);       // "router.get" define GET; "'/:taskId/users'" captura el id de la tarea y pide sus usuarios (GET /api/tasks/:taskId/users); "taskController.getAssignedUsers" devuelve los usuarios asignados a esa tarea
-router.delete('/:taskId/users/:userId', taskController.removeUserAssignment); // "router.delete" define DELETE; "'/:taskId/users/:userId'" captura tanto el id de la tarea como el del usuario (DELETE /api/tasks/:taskId/users/:userId); "taskController.removeUserAssignment" quita la asignación del usuario de esa tarea
+// Cómo se lee: "Router punto post, pasando slash y taskController punto create."
+// Qué es: ES EL ENDPOINT del flujo: aquí llega la tarea con su lista assignedUsers.
+router.post('/', taskController.create); // Qué hace: cualquier POST a /api/tasks entra aquí y llama a create
+// Cómo se lee: "Router punto get en la raíz con taskController punto getAll."
+router.get('/', taskController.getAll); // Qué hace: GET /api/tasks devuelve todas las tareas
+// Cómo se lee: "Router punto get con /filter y taskController punto filter."
+router.get('/filter', taskController.filter); // Qué hace: GET /api/tasks/filter devuelve las tareas con filtros
+// Cómo se lee: "Router punto get con /:id y taskController punto getById."
+router.get('/:id', taskController.getById); // Qué hace: GET /api/tasks/:id devuelve una tarea
+// Cómo se lee: "Router punto put con /:id y taskController punto update."
+router.put('/:id', taskController.update); // Qué hace: PUT /api/tasks/:id actualiza la tarea completa
+// Cómo se lee: "Router punto patch con /:id/status y taskController punto updateStatus."
+router.patch('/:id/status', taskController.updateStatus); // Qué hace: PATCH /api/tasks/:id/status cambia solo el estado
+// Cómo se lee: "Router punto patch con /:id y taskController punto update."
+router.patch('/:id', taskController.update); // Qué hace: PATCH /api/tasks/:id actualiza parcialmente
+// Cómo se lee: "Router punto delete con /:id y taskController punto remove."
+router.delete('/:id', taskController.remove); // Qué hace: DELETE /api/tasks/:id borra la tarea
+// Cómo se lee: "Router punto post, pasando /:taskId/assign y taskController punto assignUsers."
+// Qué es: el endpoint que agrega un usuario a una tarea ya existente.
+router.post('/:taskId/assign', taskController.assignUsers); // Qué hace: POST /api/tasks/:taskId/assign crea el vínculo en task_users
+// Cómo se lee: "Router punto get, pasando /:taskId/users y taskController punto getAssignedUsers."
+router.get('/:taskId/users', taskController.getAssignedUsers); // Qué hace: devuelve los usuarios asignados a esa tarea (los badges del editor)
+// Cómo se lee: "Router punto delete, pasando /:taskId/users/:userId y taskController punto removeUserAssignment."
+router.delete('/:taskId/users/:userId', taskController.removeUserAssignment); // Qué hace: quita la asignación de un usuario a la tarea
 
-module.exports = router; // "module.exports" exporta; "router" es el enrutador con todas las rutas, listo para montarlo en el index.js bajo la ruta /api/tasks
+// Cómo se lee: "Module punto exports se asigna a router."
+module.exports = router; // Qué hace: entrega el enrutador para montarlo en index.js bajo /api/tasks

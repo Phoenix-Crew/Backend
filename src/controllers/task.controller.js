@@ -1,20 +1,31 @@
 const { TaskModel } = require('../models');
 
-exports.create = async (req, res) => { // "exports.create" exporta la función con nombre "create"; "async" permite usar "await"; "(req, res)" recibe la petición del cliente y la respuesta que se enviará; la flecha "=>" define la función; la llave abre el bloque: es el endpoint POST /api/tasks que crea la tarea y asigna los usuarios marcados en el frontend
-  try { // "try" abre el bloque protegido: cualquier error dentro pasa al "catch"
-    const { title, description, assignedUsers } = req.body; // "const" crea constantes; las llaves desestructuran "req.body" (el JSON enviado por el frontend) en "title", "description" y "assignedUsers"; "assignedUsers" es el array de objetos [{ id, name }] que el frontend armó con los checkboxes marcados
-    if (!title || !title.trim()) { // "if" pregunta; "!title" es "si el título no viene"; "||" significa "o"; "!title.trim()" es "si el título viene vacío o solo con espacios"; si se cumple alguna de las dos, entra al bloque
-      return res.status(400).json({ message: 'El título es obligatorio' }); // "return" termina aquí; "res" es la respuesta; ".status(400)" le pone el código HTTP de petición inválida; ".json" envía un JSON con el "message" que explica que el título es obligatorio
-    } // la llave cierra el bloque del "if"
-    const task = await TaskModel.create({ // "const" declara; "task" guardará la tarea creada; "await" espera a que termine; "TaskModel.create" es el método del modelo; la llave abre el objeto de datos que se envía
-      title: title.trim(), // "title" es la propiedad; "title.trim()" es el título sin espacios sobrantes
-      description: (description || '').trim(), // "description" es la propiedad; "(description || '')" usa la descripción o, si no viene, un texto vacío; ".trim()" quita los espacios sobrantes
-      assignedUsers: assignedUsers || [] // "assignedUsers" es la propiedad clave: usa el array enviado por el frontend o, si no viene, un array vacío; este array es lo que se inserta en la tabla "task_users"
-    }); // la llave cierra el objeto y el paréntesis cierra la llamada
-    res.status(201).json(task); // "res" es la respuesta; ".status(201)" pone el código de recurso creado; ".json" envía; "task" es la tarea guardada que ya trae su array "assignedUsers" lleno
-  } catch (error) { // "catch" atrapa cualquier error del "try"; "error" es ese error
-    res.status(500).json({ message: 'Error al crear la tarea', error: error.message }); // "res.status(500)" responde con error interno del servidor; ".json" envía el "message" general y el detalle técnico en "error.message"
-  } // la llave cierra el bloque del "catch"
+// Cómo se lee: "Exports punto create se asigna a una función asíncrona que recibe req y res."
+// Qué es: el controlador del POST /api/tasks: la puerta de entrada de la tarea asignada.
+exports.create = async (req, res) => { // Qué hace: saca assignedUsers del body y llama a TaskModel.create para guardar todo
+  try { // Qué hace: intenta el guardado; si falla, va al catch
+    // Cómo se lee: "Const, haciendo destructuring de title, description y assignedUsers desde req punto body."
+    // Qué es assignedUsers: el array [{ id, name }] que armó el frontend con los checkboxes marcados.
+    const { title, description, assignedUsers } = req.body;
+    // Cómo se lee: "If, con la condición no title o no title punto trim."
+    if (!title || !title.trim()) { // Qué hace: si el título viene vacío, rechaza la petición antes de tocar la base de datos
+      // Cómo se lee: "Return res punto status 400 punto json, con el mensaje."
+      return res.status(400).json({ message: 'El título es obligatorio' }); // Qué hace: status 400 = "petición inválida" del lado del cliente
+    }
+    // Cómo se lee: "Const task se asigna a await TaskModel punto create, pasando un objeto con title,
+    // description y assignedUsers."
+    // Qué es TaskModel: el modelo de tareas. Vamos a su definición con Ctrl+Click.
+    const task = await TaskModel.create({
+      title: title.trim(),
+      description: (description || '').trim(),
+      assignedUsers: assignedUsers || []
+    }); // Qué hace: delega al modelo; la transacción guarda la tarea y cada asignación en task_users
+    // Cómo se lee: "Res punto status 201 punto json, pasando task."
+    res.status(201).json(task); // Qué hace: status 201 = "recurso creado correctamente"; la tarea viaja al frontend ya con su lista assignedUsers completa
+  } catch (error) {
+    // Cómo se lee: "Res punto status 500 punto json, con el mensaje y error punto message."
+    res.status(500).json({ message: 'Error al crear la tarea', error: error.message }); // Qué hace: avisa que falló el guardado con el detalle del error
+  }
 };
 
 exports.getAll = async (req, res) => {
@@ -76,44 +87,57 @@ exports.updateStatus = async (req, res) => {
   }
 };
 
-exports.assignUsers = async (req, res) => { // "exports.assignUsers" exporta la función "assignUsers"; "async" permite "await"; "(req, res)" recibe la petición y la respuesta; la llave abre el bloque: es el endpoint POST /api/tasks/:taskId/assign que asigna un usuario a una tarea ya existente
-  try { // "try" abre el bloque protegido
-    const { taskId } = req.params; // "const" declara; las llaves desestructuran "req.params" (los parámetros de la URL) en "taskId"; "req.params" trae el valor que capturó ":taskId" en la ruta
-    const { id, name } = req.body; // "const" declara; las llaves desestructuran "req.body" en "id" y "name"; "req.body" es el JSON que envía el frontend con el usuario a asignar, o sea el objeto { id, name }
-    if (!id) { // "if" pregunta si "id" no viene; "!id" niega y significa "si no hay id de usuario"
-      return res.status(400).json({ message: 'El id del usuario es obligatorio' }); // "return" termina aquí; "res.status(400)" responde con petición inválida; ".json" envía el mensaje de que el id del usuario es obligatorio
-    } // la llave cierra el "if"
-    const current = await TaskModel.getAssignedUsers(taskId); // "const" declara; "current" guarda el resultado; "await" espera; "TaskModel.getAssignedUsers(taskId)" consulta los usuarios ya asignados a la tarea y de paso valida que la tarea exista
-    if (!current) return res.status(404).json({ message: 'Tarea no encontrada' }); // "if" pregunta si "current" es null (la tarea no existe); "return" termina; "res.status(404)" responde con no encontrado; ".json" envía el mensaje
-    if (current.some((u) => String(u.id) === String(id))) { // "if" pregunta; "current.some" revisa si algún elemento cumple la condición; "u" es cada usuario ya asignado; "String(u.id) === String(id)" compara su id con el que se quiere asignar; si coinciden, el usuario ya está asignado
-      return res.status(400).json({ message: 'El usuario ya está asignado' }); // "return" termina aquí; "res.status(400)" responde con petición inválida; ".json" avisa que no se puede asignar dos veces al mismo usuario
-    } // la llave cierra el "if"
-    const task = await TaskModel.assignUsers(taskId, [{ id, name }]); // "const" declara; "task" guardará la tarea actualizada; "await" espera; "TaskModel.assignUsers" inserta la asignación; "taskId" es la tarea y "[{ id, name }]" es un array con el usuario a asignar, que se guarda en "task_users"
-    res.json(task); // "res" es la respuesta; ".json" envía; "task" es la tarea con sus asignados actualizados para que el frontend refresque los badges
-  } catch (error) { // "catch" atrapa cualquier error; "error" es ese error
-    res.status(500).json({ error: error.message }); // "res.status(500)" responde con error del servidor; ".json" envía el detalle técnico del error
-  } // la llave cierra el "catch"
+// Cómo se lee: "Exports punto assignUsers se asigna a una función asíncrona con req y res."
+// Qué es: el endpoint que usa el editor cuando tildas y guardas un usuario.
+exports.assignUsers = async (req, res) => { // Qué hace: asigna un usuario a una tarea que ya existe, evitando duplicados
+  try { // Qué hace: intenta asignar el usuario
+    // Cómo se lee: "Const, haciendo destructuring de taskId desde req punto params."
+    const { taskId } = req.params; // Qué hace: saca el id de la tarea que viene en la URL
+    // Cómo se lee: "Const, haciendo destructuring de id y name desde req punto body."
+    const { id, name } = req.body; // Qué hace: saca el usuario que viene en el body del POST
+// Cómo se lee: "If, con la condición no id."
+    if (!id) { // Qué hace: si el body no trae id, rechaza la petición
+      return res.status(400).json({ message: 'El id del usuario es obligatorio' }); // Qué hace: responde 400 con el aviso
+    }
+    // Cómo se lee: "Const current se asigna a await TaskModel punto getAssignedUsers, pasando taskId."
+    const current = await TaskModel.getAssignedUsers(taskId); // Qué hace: trae los usuarios que ya tiene asignados esta tarea
+    // Cómo se lee: "If, con no current, return 404."
+    if (!current) return res.status(404).json({ message: 'Tarea no encontrada' }); // Qué hace: si la tarea no existe, responde no encontrada
+    // Cómo se lee: "If current tiene algún usuario cuyo String id es exactamente igual a String id."
+    if (current.some((u) => String(u.id) === String(id))) { // Qué hace: pregunta si ese usuario YA está asignado para no duplicarlo
+      return res.status(400).json({ message: 'El usuario ya está asignado' }); // Qué hace: rechaza la asignación duplicada
+    }
+    // Cómo se lee: "Const task se asigna a await TaskModel.assignUsers, pasando taskId y un array
+    // con el objeto id y name."
+    const task = await TaskModel.assignUsers(taskId, [{ id, name }]); // Qué hace: inserta la fila en task_users y devuelve la tarea actualizada con sus asignados
+    // Cómo se lee: "Res punto json pasando task."
+    res.json(task); // Qué hace: devuelve la tarea ya con el nuevo asignado; el frontend repinta los badges
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
-exports.getAssignedUsers = async (req, res) => { // "exports.getAssignedUsers" exporta la función "getAssignedUsers"; "async" permite "await"; "(req, res)" recibe la petición y la respuesta; es el endpoint GET /api/tasks/:taskId/users que devuelve los usuarios asignados a la tarea
-  try { // "try" abre el bloque protegido
-    const users = await TaskModel.getAssignedUsers(req.params.taskId); // "const" declara; "users" guarda el resultado; "await" espera; "TaskModel.getAssignedUsers" consulta; "req.params.taskId" es el id de la tarea que viene en la URL
-    if (!users) return res.status(404).json({ message: 'Tarea no encontrada' }); // "if" pregunta si "users" es null (tarea inexistente); "return" termina; "res.status(404)" responde no encontrado; ".json" envía el mensaje
-    res.json(users); // "res.json" envía; "users" es el array [{ id, name }] de usuarios asignados a la tarea
-  } catch (error) { // "catch" atrapa el error
-    res.status(500).json({ error: error.message }); // "res.status(500)" responde con error del servidor; ".json" envía el detalle
-  } // la llave cierra el "catch"
+// Cómo se lee: "Exports getAssignedUsers: endpoint GET /api/tasks/:taskId/users".
+exports.getAssignedUsers = async (req, res) => { // Qué hace: devuelve los usuarios asignados a una tarea (badges en edit)
+  try {
+    const users = await TaskModel.getAssignedUsers(req.params.taskId);
+    if (!users) return res.status(404).json({ message: 'Tarea no encontrada' });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
-exports.removeUserAssignment = async (req, res) => { // "exports.removeUserAssignment" exporta la función "removeUserAssignment"; "async" permite "await"; "(req, res)" recibe la petición y la respuesta; es el endpoint DELETE /api/tasks/:taskId/users/:userId que quita un usuario de la tarea
-  try { // "try" abre el bloque protegido
-    const { taskId, userId } = req.params; // "const" declara; las llaves desestructuran "req.params" en "taskId" y "userId"; la URL trae el id de la tarea y el id del usuario a desasignar
-    const task = await TaskModel.removeUserAssignment(taskId, userId); // "const" declara; "task" guarda la tarea actualizada; "await" espera; "TaskModel.removeUserAssignment(taskId, userId)" borra la fila de "task_users" que une a ese usuario con esa tarea
-    if (!task) return res.status(404).json({ message: 'Tarea no encontrada' }); // "if" pregunta si la tarea no existe; "return" termina; "res.status(404)" responde no encontrado; ".json" envía el mensaje
-    res.json(task); // "res.json" envía; "task" es la tarea ya sin ese usuario asignado
-  } catch (error) { // "catch" atrapa el error
-    res.status(500).json({ error: error.message }); // "res.status(500)" responde con error del servidor; ".json" envía el detalle
-  } // la llave cierra el "catch"
+// Cómo se lee: "Exports removeUserAssignment: endpoint DELETE /api/tasks/:taskId/users/:userId".
+exports.removeUserAssignment = async (req, res) => { // Qué hace: quita el vínculo de task_users entre esa tarea y ese usuario
+  try {
+    const { taskId, userId } = req.params;
+    const task = await TaskModel.removeUserAssignment(taskId, userId);
+    if (!task) return res.status(404).json({ message: 'Tarea no encontrada' });
+    res.json(task);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 };
 
 exports.filter = async (req, res) => {

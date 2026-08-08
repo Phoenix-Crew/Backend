@@ -15,18 +15,24 @@ const taskController = require('./controllers/task.controller');
 const app = express();
 const PORT = process.env.PORT || 3002;
 
-app.use(cors()); // "app" es la aplicación Express; ".use" registra un middleware; "cors()" es el middleware que permite que el frontend (que corre en el puerto 5173) consuma esta API sin que el navegador lo bloquee
-app.use(express.json()); // "app" es la aplicación; ".use" registra el middleware; "express.json()" parsea el body de las peticiones: es imprescindible porque ahí viaja el array "assignedUsers" de la tarea que envía el frontend
+app.use(cors());
+// Cómo se lee: "App punto use, con express punto json."
+app.use(express.json()); // Qué hace: convierte el body JSON (donde viaja assignedUsers) en objeto JavaScript
 
-app.use('/api/auth', authRoutes); // "app.use" monta; "'/api/auth'" es el prefijo; "authRoutes" es el enrutador de autenticación: todas sus rutas quedan bajo /api/auth
-app.use('/api/users', userRoutes); // "app.use" monta; "'/api/users'" es el prefijo; "userRoutes" es el enrutador de usuarios: incluye la ruta /api/users/:userId/tasks que consulta las tareas asignadas
-app.use('/api/tasks', taskRoutes); // "app.use" monta; "'/api/tasks'" es el prefijo; "taskRoutes" es el enrutador de tareas: aquí llega el POST /api/tasks que crea la tarea y la asigna, junto con las rutas de asignar, listar y quitar usuarios
+app.use('/api/auth', authRoutes);
+// Cómo se lee: "App punto use, pasando /api/users y userRoutes como argumentos."
+app.use('/api/users', userRoutes); // Qué hace: monta todas las rutas de usuarios, incluida la que usamos: GET /api/users/:userId/tasks
+// Cómo se lee: "App punto use, pasando '/api/tasks' y taskRoutes como argumentos."
+// Qué es: el punto de entrada del backend para el flujo "asignar tarea": aquí llega el POST /api/tasks que crea y asigna la tarea.
+app.use('/api/tasks', taskRoutes);
 
-app.get('/api/dashboard', taskController.getDashboard); // "app.get" define una ruta GET; "'/api/dashboard'" es la ruta del panel de administración; "taskController.getDashboard" devuelve las estadísticas generales
-
-app.get('/api', (req, res) => { // "app.get" define GET; "'/api'" es la raíz informativa; "(req, res)" recibe la petición y la respuesta; la llave abre la función
-  res.json({ message: 'API REST - Gestión de Tareas v3.0', status: 'running' }); // "res.json" envía un JSON de bienvenida con el nombre de la API y el estado "running"
-}); // la llave cierra la función
+// Cómo se lee: "App punto get, pasando '/api/dashboard' y taskController punto getDashboard."
+app.get('/api/dashboard', taskController.getDashboard); // Qué hace: responde las estadísticas del panel
+// Cómo se lee: "App punto get, pasando '/api' y una función con req y res."
+app.get('/api', (req, res) => { // Qué hace: responde en la raíz con el estado de la API
+  // Cómo se lee: "Res punto json pasando el objeto con el mensaje y el status."
+  res.json({ message: 'API REST - Gestión de Tareas v3.0', status: 'running' }); // Qué hace: manda el JSON de bienvenida de la API
+});
 
 async function start() {
   try {

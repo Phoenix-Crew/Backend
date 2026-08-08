@@ -105,13 +105,19 @@ exports.toggleStatus = async (req, res) => {
   }
 };
 
-exports.getUserTasks = async (req, res) => { // "exports.getUserTasks" exporta la función "getUserTasks"; "async" permite "await"; "(req, res)" recibe la petición y la respuesta; la llave abre el bloque: es el endpoint GET /api/users/:userId/tasks que devuelve las tareas asignadas a un usuario
-  try { // "try" abre el bloque protegido
-    const user = await UserModel.findById(req.params.userId); // "const" declara; "user" guarda el resultado; "await" espera; "UserModel.findById" busca al usuario; "req.params.userId" es el id que capturó ":userId" en la URL; esto valida que el usuario exista antes de consultar
-    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' }); // "if" pregunta si el usuario no existe; "return" termina; "res.status(404)" responde no encontrado; ".json" envía el mensaje
-    const tasks = await TaskModel.findByUserId(req.params.userId); // "const" declara; "tasks" guarda el resultado; "await" espera; "TaskModel.findByUserId" hace el JOIN con "task_users" para traer solo las tareas que le fueron asignadas a ese usuario
-    res.json(tasks); // "res.json" envía; "tasks" es el array de tareas asignadas, cada una con su propiedad "assignedUsers" para que el frontend las muestre en la tabla
-  } catch (error) { // "catch" atrapa el error
-    res.status(500).json({ message: 'Error al obtener tareas del usuario', error: error.message }); // "res.status(500)" responde con error del servidor; ".json" envía el mensaje general y el detalle técnico
-  } // la llave cierra el "catch"
+// Cómo se lee: "Exports punto getUserTasks se asigna a una función asíncrona con req y res."
+exports.getUserTasks = async (req, res) => { // Qué hace: devuelve las tareas asignadas a ese usuario; la usa searchUser para rellenar la tabla
+  try { // Qué hace: intenta traer las tareas; si falla, va al catch
+    // Cómo se lee: "Const user se asigna a await UserModel punto findById, pasando el userId que viene en la URL."
+    const user = await UserModel.findById(req.params.userId); // Qué hace: verifica primero que el usuario exista
+    // Cómo se lee: "If, con la condición no user, return res punto status 404 punto json con el mensaje."
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' }); // Qué hace: si no existe, responde 404 y corta
+    // Cómo se lee: "Const tasks se asigna a await TaskModel punto findByUserId, pasando userId."
+    // Qué es TaskModel: el modelo de tareas. Vamos a su definición con Ctrl+Click.
+    const tasks = await TaskModel.findByUserId(req.params.userId); // Qué hace: hace JOIN task_users con tasks para traer solo las tareas de ese usuario
+    // Cómo se lee: "Res punto json pasando tasks."
+    res.json(tasks); // Qué hace: devuelve la lista; el frontend la guarda en tasks y la pinta
+  } catch (error) {
+    res.status(500).json({ message: 'Error al obtener tareas del usuario', error: error.message });
+  }
 };
