@@ -7,6 +7,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "seed": "node src/database/seed.js",
+    "seed:tasks": "node src/database/seedTasks.js",
     "db:init": "node scripts/db-init.js",
     "postinstall": "node scripts/setup-env.js"
   },
